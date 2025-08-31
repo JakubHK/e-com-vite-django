@@ -1,8 +1,10 @@
-import ./style.css;
-import htmx.org;
-import Alpine from alpinejs;
+import './style.css';
+import 'htmx.org';
+import Alpine from 'alpinejs';
 
 window.Alpine = Alpine;
 Alpine.start();
 
-console.log(Vite
+console.log('Vite + Django + HTMX + Alpine + Tailwind initialized');
+console.log('HTMX version:', window.htmx?.version ?? 'not found');
+console.log('Alpine present:', !!window.Alpine);
