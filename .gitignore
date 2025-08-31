@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+media/
+staticfiles/
+
+# Virtualenv / uv
+.venv/
+.uv/
+.python-version
+
+# Node / Vite
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite build output
+static/dist/
+
+# Testing / coverage / type checking
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Environment files
+.env
+.env.*
+.envrc
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
