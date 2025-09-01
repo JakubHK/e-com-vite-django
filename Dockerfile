@@ -7,6 +7,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline --no-audit
 # Copy frontend sources and Vite config
 COPY frontend/ frontend/
 COPY vite.config.mjs postcss.config.js tailwind.config.js ./
+# Include templates so Tailwind can scan content during build
+COPY templates/ templates/
 # Copy static directory (images, etc.) that Vite may reference
 COPY static/ static/
 # Build static assets into static/dist with manifest
