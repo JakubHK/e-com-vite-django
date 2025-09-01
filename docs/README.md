@@ -130,6 +130,7 @@ Commands:
 Static files:
 - Built via Vite to `static/dist` and collected to `/app/staticfiles`.
 - Served by Nginx from `/staticfiles/` (read-only volume mount).
+- Django WhiteNoise CompressedManifest storage is enabled for hashed assets and safe fallbacks; in production Nginx is the primary static server while WhiteNoise ensures manifest correctness.
 
 ## 5) CI/CD Pipeline (GitHub Actions → GHCR → SSH → Docker Compose)
 
@@ -144,6 +145,8 @@ How it works:
   - SSH into the Oracle VM and deploy using:
     - `IMAGE=ghcr.io/<owner>/<repo>:<git-sha> docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml pull web`
     - `IMAGE=... docker compose -f ... up -d`
+- Concurrency: the workflow uses a concurrency group `production-deploy` to prevent overlapping production deployments.
+- Environment URL: the production environment URL is set to `http://${{ secrets.SSH_HOST }}` for quick access in the Actions UI.
 
 Server one-time setup for CI/CD:
 - Create a non-root deploy user with Docker access:

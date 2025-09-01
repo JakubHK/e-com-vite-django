@@ -79,9 +79,10 @@ Required:
 - `SSH_KEY` → Private key matching the public key added to the server
 - `SSH_PATH` → `/opt/ecom` (the directory containing your compose files)
 
-Optional (if your GHCR image is private):
-- `GHCR_USERNAME` → Your GitHub username
-- `GHCR_TOKEN` → A Personal Access Token with `read:packages`
+Optional:
+- `SSH_PORT` → Optional SSH port override (default `22`)
+- `GHCR_USERNAME` → Your GitHub username (if GHCR images are private)
+- `GHCR_TOKEN` → A Personal Access Token with `read:packages` (if GHCR images are private)
 
 Environment protection (recommended):
 - Settings → Environments → New environment `production`
@@ -174,6 +175,8 @@ See [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
   - Optionally logs in to GHCR on server (for private images)
   - Pulls the pinned image and brings the stack up using the overlay
   - Verifies nginx http://localhost/ responds; prints recent logs if not
+- Concurrency: uses a group `production-deploy` to prevent overlapping production deployments
+- Environment URL: sets the production environment URL to `http://${{ secrets.SSH_HOST }}` for quick access in the Actions UI
 
 ## 10) Extending the pipeline
 
@@ -183,3 +186,8 @@ See [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
   - Add Slack/Teams notification steps after successful deploy or on failure.
 - Database migrations:
   - For complex migrations, run a dedicated migration job before rolling the web service.
+- Multi‑arch images:
+  - If you plan to target x86 hosts too, build and push for `linux/amd64,linux/arm64` (note: builds will be slower).
+- Image hygiene:
+  - Periodically prune unused images on the server to save disk:
+    - `docker image prune -f --filter 'until=168h'`

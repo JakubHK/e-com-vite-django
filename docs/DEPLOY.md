@@ -29,17 +29,68 @@ flowchart LR
 - OS: Ubuntu 22.04 LTS or Oracle Linux 8/9.
 - Region/AD: If Ampere capacity is unavailable, try a different AD or region.
 
-## 2) Networking and Security Lists
+## 2) Networking and Security (Oracle Cloud VCN/Subnets/Rules)
 
-Create or use a VCN with a public subnet:
-- Ingress rules (Security List or NSG):
-  - TCP 22 (SSH): Source = YOUR IP/CIDR ONLY (do not leave open to 0.0.0.0/0).
-  - TCP 80 (HTTP): Source = 0.0.0.0/0.
-  - Optional TCP 443 (HTTPS): Source = 0.0.0.0/0 (for later TLS).
-- Egress: Allow outbound internet access (default OK).
+Goal: place your VM in a VCN with a Public Subnet (Internet-facing), an Internet Gateway, and tight security rules that only allow:
+- HTTP (80/tcp) from anywhere
+- Optional HTTPS (443/tcp) from anywhere
+- SSH (22/tcp) from only your workstation’s public IP (a single-address CIDR /32)
+
+A) Create VCN and Public Subnet (Console)
+- Networking → Virtual Cloud Networks → Create VCN.
+  - Quick Create is fine. It creates:
+    - VCN (RFC1918 CIDR, e.g. 10.0.0.0/16)
+    - Public Subnet (e.g. 10.0.0.0/24) with a Route Table to Internet Gateway
+    - Internet Gateway (IGW)
+    - Default Security List
+- Verify the Public Subnet:
+  - Has a Route Table with a 0.0.0.0/0 route to the Internet Gateway
+  - DHCP options exist (default is fine)
+  - “Public Subnet” means instances in it can have Public IPv4 addresses
+
+B) Choose Security List vs. NSG (Network Security Group)
+- Security Lists apply to all VNICs in a subnet (coarse-grained).
+- NSGs attach to a specific instance/VNIC (fine-grained, recommended).
+- Use either, but NSG is preferred so you don’t loosen rules for every VM in the subnet.
+
+C) Create inbound rules (NSG or Security List)
+- HTTP:
+  - Stateless: No (stateful default)
+  - Protocol: TCP
+  - Source Type: CIDR
+  - Source CIDR: 0.0.0.0/0
+  - Destination Port: 80
+- HTTPS (optional for TLS later):
+  - Same as above, Destination Port: 443
+- SSH (restricted):
+  - Protocol: TCP
+  - Source Type: CIDR
+  - Source CIDR: YOUR_PUBLIC_IP/32 (single IP)
+  - Destination Port: 22
+- Egress: Allow 0.0.0.0/0 (default outbound OK) so the VM can pull packages and images.
+
+D) Public IP on the VM
+- When launching the instance, ensure:
+  - Subnet: your Public Subnet
+  - Assign public IPv4 address: Enabled (Ephemeral is fine; Reserved is optional if you need a fixed address)
+  - Attach the NSG you created (or rely on the Subnet’s Security List)
+
+E) What is “YOUR IP”?
+- It means your workstation’s current public IPv4 on the internet (not your LAN 192.168.x or 10.x address).
+- Find it:
+  - curl -4 ifconfig.me
+  - curl -4 https://api.ipify.org
+  - dig +short myip.opendns.com @resolver1.opendns.com
+- Convert to a single-address CIDR by appending /32. Example: 203.0.113.45 → 203.0.113.45/32
+- If your ISP changes your IP frequently (dynamic IP), you may need to update the rule after it changes. Temporarily, you can allow a slightly larger CIDR belonging to your ISP, but keep it as narrow and short-lived as possible.
+- If you are behind CGNAT/hotel Wi‑Fi and cannot restrict by IP, consider using:
+  - Oracle Bastion, or
+  - A VPN/static egress IP, or
+  - Temporarily open 22/tcp narrowly with strict time window and then close it.
 
 Security warning:
-- Lock SSH to your IP. Never expose port 22 to the world.
+- Never leave SSH (22) open to 0.0.0.0/0.
+- Prefer NSGs attached to the instance over broad Security List changes for the whole subnet.
 
 ## 3) Launch the Compute Instance
 
@@ -164,6 +215,7 @@ Server setup for CI/CD:
 GitHub Actions Secrets:
 - SSH_HOST → server public IP
 - SSH_USER → deploy
+- SSH_PORT → 22 (optional)
 - SSH_KEY → private key matching the server’s authorized key
 - SSH_PATH → /opt/ecom
 - If GHCR private: GHCR_USERNAME and GHCR_TOKEN (PAT with read:packages)
@@ -189,6 +241,7 @@ IMAGE=ghcr.io/<owner>/<repo>:PRIOR_SHA docker compose \
 - Vite builds into `static/dist` with manifest; see vite config.
 - `collectstatic` copies into `/app/staticfiles`.
 - Nginx serves `/static/*` from `/staticfiles/` (mounted read-only).
+- Django WhiteNoise CompressedManifest storage is enabled to ensure hashed asset names and safe fallbacks; in production, Nginx is the primary static server while WhiteNoise primarily guarantees manifest correctness.
 
 ## 10) Admin and Data Ops
 
@@ -266,6 +319,168 @@ Stop:
 ```
 docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 ```
+
+## 16) First‑Time Deployment: Step‑by‑Step (Copy/Paste)
+
+WARNING
+- Never expose SSH (22/tcp) to the whole internet. Restrict to your IP/CIDR in Oracle Security List/NSG.
+- Keep DEBUG=false in production. Do not commit .env or secrets to Git.
+- Ensure ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS are set correctly (CSRF requires scheme, e.g., https://example.com).
+- Database must not be published on a public interface.
+
+Step 1 — Launch the Oracle VM
+- Shape: VM.Standard.A1.Flex (1 OCPU, 6 GB RAM).
+- OS: Ubuntu 22.04 or Oracle Linux 8/9.
+- Assign a public IPv4 and put the instance in a public subnet.
+
+Step 2 — Network firewalling (VCN, Subnet, Rules, “YOUR IP” explained)
+
+Oracle VCN/Subnet basics
+- Use a VCN with a Public Subnet that routes 0.0.0.0/0 to an Internet Gateway (IGW).
+- Launch the VM into that Public Subnet and assign a Public IPv4 address (Ephemeral is fine).
+- Prefer NSGs attached to the VM’s VNIC for security rules.
+
+Ingress rules (NSG or Security List)
+- HTTP (80/tcp): Source 0.0.0.0/0
+- HTTPS (443/tcp): Source 0.0.0.0/0 (only if/when you add TLS)
+- SSH (22/tcp): Source = YOUR_PUBLIC_IP/32 only (never 0.0.0.0/0)
+
+What does “YOUR IP” mean?
+- It is your machine’s public IPv4 on the internet.
+- Find it from your workstation:
+  - curl -4 ifconfig.me
+  - curl -4 https://api.ipify.org
+  - dig +short myip.opendns.com @resolver1.opendns.com
+- Add /32 to that address when creating the rule (single‑address CIDR).
+
+Dynamic IP considerations
+- If your ISP changes your IP, update the NSG/Security List rule accordingly.
+- If on CGNAT/hotel Wi‑Fi and you cannot pin to one IP:
+  - Use Oracle Bastion or a VPN with a static egress IP,
+  - Or temporarily widen the CIDR with a strict time window and revert quickly.
+
+OS firewall on the VM
+- Ubuntu (ufw):
+  - sudo ufw allow 22/tcp
+  - sudo ufw allow 80/tcp
+  - sudo ufw allow 443/tcp   # only if using TLS
+  - sudo ufw enable
+- Oracle Linux (firewalld):
+  - sudo firewall-cmd --add-service=http --permanent
+  - sudo firewall-cmd --add-service=https --permanent   # only if using TLS
+  - sudo firewall-cmd --reload
+
+Step 3 — Create a non‑root deploy user and install Docker
+Ubuntu/Oracle Linux:
+```
+# Login as the default user (e.g., ubuntu/opc), then:
+sudo adduser deploy
+sudo usermod -aG docker deploy
+newgrp docker
+
+# Install Docker
+curl -fsSL https://get.docker.com | sudo sh
+sudo systemctl enable --now docker
+
+# Verify
+docker --version
+docker run --rm hello-world
+```
+
+Step 4 — Place the app in /opt/ecom and create .env
+```
+sudo mkdir -p /opt/ecom && sudo chown -R deploy:deploy /opt/ecom
+sudo -u deploy bash -lc '
+  cd /opt/ecom
+  # Clone or copy your repo contents here
+  # git clone https://github.com/YOUR_ORG/YOUR_REPO.git .  # if using git
+  cp .env.example .env
+'
+```
+Edit /opt/ecom/.env:
+- SECRET_KEY: set to a strong random value (50+ chars). Example:
+  ```
+  python -c "import secrets,string; alphabet=string.ascii_letters+string.digits; print(''.join(secrets.choice(alphabet) for _ in range(64)))"
+  ```
+- DEBUG=false
+- ALLOWED_HOSTS=YOUR_PUBLIC_IP,your.domain
+- CSRF_TRUSTED_ORIGINS=http://YOUR_PUBLIC_IP,https://your.domain
+- POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB: set strong values
+- Optional DATABASE_URL if not using the default internal db
+
+Step 5 — First manual run (validation)
+```
+cd /opt/ecom
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+docker compose logs -f db &
+docker compose logs -f web &
+docker compose logs -f nginx &
+```
+Open http://YOUR_PUBLIC_IP/. When healthy:
+```
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py createsuperuser
+```
+
+Step 6 — Configure GitHub for CI/CD
+In your GitHub repository: Settings → Secrets and variables → Actions → New repository secret
+- SSH_HOST: YOUR_PUBLIC_IP
+- SSH_USER: deploy
+- SSH_PORT: 22 (optional)
+- SSH_KEY: Private key that matches the public key you will place in /home/deploy/.ssh/authorized_keys
+- SSH_PATH: /opt/ecom
+- If GHCR private: GHCR_USERNAME (your GitHub username), GHCR_TOKEN (PAT with read:packages)
+
+On the server, install the deploy public key:
+```
+sudo -u deploy bash -lc '
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  echo "ssh-ed25519 AAAA... your-ci-deploy-public-key" >> ~/.ssh/authorized_keys
+  chmod 600 ~/.ssh/authorized_keys
+'
+```
+Protect production in GitHub (recommended): Settings → Environments → production → require reviewers/approval.
+
+Step 7 — First CI/CD deploy
+- Push to main or create a tag vX.Y.Z. The workflow will:
+  - Build linux/arm64 image with Buildx
+  - Push to GHCR with tags :<git-sha> and :latest
+  - SSH to the server and deploy using the deploy overlay, pinning the web image to the commit SHA
+  - Perform an nginx healthcheck (http://localhost/)
+- Notes:
+  - Concurrency group production-deploy prevents overlapping deploys.
+  - The Actions “production” environment shows URL http://$SSH_HOST for quick access.
+
+Step 8 — Rollback
+```
+cd /opt/ecom
+IMAGE=ghcr.io/<owner>/<repo>:PRIOR_SHA \
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml up -d
+```
+Or re-run the deploy job in GitHub Actions targeting an earlier commit SHA.
+
+Step 9 — Maintenance (disk and backups)
+- Clean old images periodically (free tier disk is limited):
+  ```
+  docker image prune -f --filter "until=168h"
+  ```
+- Backups:
+  ```
+  docker compose exec db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > /tmp/ecom.sql
+  # Move backups off the VM and store encrypted
+  ```
+
+Step 10 — TLS options
+- Recommended: Oracle Load Balancer (Always Free) to terminate TLS and forward HTTP to the instance.
+- Alternative: Extend Nginx with certbot (sidecar) when ready.
+
+Security checklist (quick)
+- [ ] SSH restricted to your IP (Oracle Security List/NSG)
+- [ ] .env present on server only; strong SECRET_KEY and DB password
+- [ ] DEBUG=false; ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS set correctly
+- [ ] DB not exposed publicly; only via Docker network
+- [ ] Environment approvals enabled in GitHub for production
+- [ ] Backups scheduled and tested; plan for TLS
 
 ---
 

@@ -13,16 +13,59 @@ Related files:
 
 ## Network Security
 
-- Oracle Security List / NSG:
-  - Allow inbound:
-    - TCP 80 (HTTP) from 0.0.0.0/0
-    - Optional TCP 443 (HTTPS) from 0.0.0.0/0
-    - TCP 22 (SSH) only from your IP/CIDR
-  - Deny or restrict everything else
-- OS firewall:
-  - Ubuntu (ufw): allow 22, 80, optional 443; deny others
-  - Oracle Linux (firewalld): enable http/https services, reload rules
-- Do not expose the database on a public interface. The `db` service must not publish ports; it should only be reachable on the internal Docker network via service name `db`.
+Oracle Cloud components (quick map)
+- VCN (Virtual Cloud Network): your private network (RFC1918 CIDR such as 10.0.0.0/16).
+- Subnet: IP ranges inside the VCN. “Public Subnet” = can assign public IPv4 addresses.
+- Internet Gateway (IGW): enables outbound/inbound internet traffic for public subnets.
+- Route Table: tells subnets where 0.0.0.0/0 traffic goes (to IGW for public subnets).
+- NSG (Network Security Group) vs Security List:
+  - Security Lists apply to all VNICs in a subnet (coarser).
+  - NSGs attach to specific VNICs/instances (finer, recommended). Prefer NSG.
+
+Recommended layout for this app
+- Use a VCN with a Public Subnet that has:
+  - A route table containing a default route 0.0.0.0/0 → Internet Gateway
+  - DHCP options (defaults are fine)
+- Launch the compute instance into this Public Subnet with a Public IPv4 (Ephemeral OK; Reserved IP optional).
+- Attach an NSG to the instance and place tight inbound rules on that NSG (preferred over broad Security List changes).
+
+Inbound rules (NSG or Security List)
+- HTTP (80/tcp): Source CIDR 0.0.0.0/0 (allow the world to read your site)
+- HTTPS (443/tcp, optional): Source CIDR 0.0.0.0/0 (for future TLS)
+- SSH (22/tcp): Source CIDR = YOUR_PUBLIC_IP/32 (single-address CIDR). Never 0.0.0.0/0.
+  - YOUR_PUBLIC_IP means your workstation’s public IPv4 on the internet (not 192.168.x or 10.x).
+  - Find it:
+    - curl -4 ifconfig.me
+    - curl -4 https://api.ipify.org
+    - dig +short myip.opendns.com @resolver1.opendns.com
+  - Convert to CIDR by appending /32; e.g., 203.0.113.45 → 203.0.113.45/32.
+  - Dynamic IP? You must update the rule when it changes. Alternatives:
+    - Use Oracle Bastion for temporary, IP-bound SSH sessions.
+    - Use a VPN or jump host with a static egress IP.
+    - If absolutely necessary, temporarily widen the CIDR but reduce the time window and revert quickly.
+
+Outbound rules (egress)
+- Allow 0.0.0.0/0 so the VM can install packages and pull container images (default is typically OK).
+
+OS firewall (on the VM)
+- Ubuntu (ufw):
+  - sudo ufw allow 22/tcp
+  - sudo ufw allow 80/tcp
+  - sudo ufw allow 443/tcp   # only if using TLS
+  - sudo ufw enable
+- Oracle Linux (firewalld):
+  - sudo firewall-cmd --add-service=http --permanent
+  - sudo firewall-cmd --add-service=https --permanent   # only if using TLS
+  - sudo firewall-cmd --reload
+
+Database exposure
+- Do not expose the database on a public interface. The db service must NOT publish host ports.
+- Access Postgres only via the internal Docker network (service name db). Keep rules restricted to the Docker network namespace.
+
+Additional notes
+- Consider reserving a Public IPv4 if you need a stable address across reboots.
+- IPv6 is optional and out of scope here; if enabled, mirror the same principles (tight SSH, open 80/443 as needed).
+- Prefer NSGs on the instance for precise control; avoid loosening the entire subnet via Security Lists unless necessary.
 
 ## Identity and Secrets
 
