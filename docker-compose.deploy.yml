@@ -1,0 +1,12 @@
+version: "3.9"
+
+# Overlay used only in CI/CD deployment on the server.
+# It forces the web service to use a pre-built image from GHCR
+# instead of building locally. The IMAGE environment variable must
+# be provided at runtime, e.g.:
+#   IMAGE=ghcr.io/OWNER/REPO:${GIT_SHA} docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml up -d
+services:
+  web:
+    image: ${IMAGE}
+    # Remove/override any build context from base compose
+    build: null

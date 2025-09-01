@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.title }} · E‑Shop{% endblock %}
+
+{% block content %}
+  <nav class="mb-4 text-sm text-gray-600">
+    <a href="/" class="hover:underline">Home</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800">{{ product.title }}</span>
+  </nav>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-6">
+      <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        {% if product.image_url %}
+          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="w-full h-auto object-cover">
+        {% else %}
+          <div class="aspect-[4/3] grid place-items-center text-gray-400 text-sm">No image</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="lg:col-span-6">
+      <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">{{ product.title }}</h1>
+      <p class="mt-2 text-xl font-bold text-gray-900">{{ product.price }} {{ product.currency }}</p>
+
+      {% if product.description %}
+        <div class="mt-4 prose prose-sm max-w-none text-gray-700">
+          {{ product.description|linebreaks }}
+        </div>
+      {% endif %}
+
+      <div class="mt-6">
+        <form
+          class="inline-flex items-stretch gap-3"
+          hx-post="{% url 'cart_add' %}"
+          hx-target="#cart-badge"
+          hx-swap="outerHTML"
+        >
+          {% csrf_token %}
+          <input type="hidden" name="product_id" value="{{ product.id }}">
+          <label class="sr-only" for="qty">Quantity</label>
+          <input
+            id="qty"
+            name="qty"
+            type="number"
+            min="1"
+            value="1"
+            class="w-24 rounded-md ring-1 ring-gray-300 focus:ring-2 focus:ring-indigo-500 px-3 py-2"
+          />
+          <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            Add to cart
+          </button>
+        </form>
+      </div>
+
+      <div class="mt-6">
+        <a href="/" class="text-sm text-gray-600 hover:text-gray-900 hover:underline">← Back to products</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

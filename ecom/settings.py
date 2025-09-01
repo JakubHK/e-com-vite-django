@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +22,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-!#@!6hk!xe$skzrq(st46%=e(2v!y3cq8r0q3unc8+q8!6b=dr'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!#@!6hk!xe$skzrq(st46%=e(2v!y3cq8r0q3unc8+q8!6b=dr')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('1','true','yes','on')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',') if h.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost').split(',') if o.strip()]
 
 
 # Application definition
@@ -76,10 +79,10 @@ WSGI_APPLICATION = 'ecom.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+    )
 }
 
 
@@ -131,8 +134,10 @@ DJANGO_VITE = {
     "default": {
         "dev_mode": DEBUG,
         "manifest_path": BASE_DIR / "static" / "dist" / ".vite" / "manifest.json",
-        "assets_path": BASE_DIR / "static" / "dist",
-        "static_url_prefix": "static/dist/",
+        # IMPORTANT:
+        # - Use a prefix relative to STATIC_URL, not including it.
+        # - This avoids dev URLs like http://localhost:5173/static/static/dist/...
+        "static_url_prefix": "dist/",
         "dev_server_protocol": "http",
         "dev_server_host": "localhost",
         "dev_server_port": 5173,

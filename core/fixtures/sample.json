@@ -1,0 +1,86 @@
+[
+  {
+    "model": "core.category",
+    "pk": 1,
+    "fields": {
+      "title": "Books",
+      "slug": "books",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.category",
+    "pk": 2,
+    "fields": {
+      "title": "Electronics",
+      "slug": "electronics",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.product",
+    "pk": 1,
+    "fields": {
+      "category": 1,
+      "title": "Django for Beginners",
+      "slug": "django-for-beginners",
+      "description": "A practical introduction to Django.",
+      "price": "29.90",
+      "currency": "EUR",
+      "is_active": true,
+      "image_url": "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=1200&auto=format&fit=crop",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.product",
+    "pk": 2,
+    "fields": {
+      "category": 1,
+      "title": "Two Scoops of Django",
+      "slug": "two-scoops-of-django",
+      "description": "Best practices for Django.",
+      "price": "39.90",
+      "currency": "EUR",
+      "is_active": true,
+      "image_url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=1200&auto=format&fit=crop",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.product",
+    "pk": 3,
+    "fields": {
+      "category": 2,
+      "title": "Wireless Headphones",
+      "slug": "wireless-headphones",
+      "description": "Comfortable over-ear wireless headphones.",
+      "price": "79.00",
+      "currency": "EUR",
+      "is_active": true,
+      "image_url": "https://images.unsplash.com/photo-1518441902116-47f3b2d1ed09?q=80&w=1200&auto=format&fit=crop",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.product",
+    "pk": 4,
+    "fields": {
+      "category": 2,
+      "title": "Smart Watch",
+      "slug": "smart-watch",
+      "description": "Track your fitness and notifications.",
+      "price": "129.00",
+      "currency": "EUR",
+      "is_active": true,
+      "image_url": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1200&auto=format&fit=crop",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

@@ -1,23 +1,23 @@
-import { defineConfig } from vite;
-import path from path;
+import { defineConfig } from 'vite';
+import path from 'path';
 
 export default defineConfig({
-  root: .,
-  base: /static/dist/,
+  root: '.',
+  base: '/static/dist/',
   build: {
     manifest: true,
-    outDir: path.resolve(static, dist),
+    outDir: path.resolve('static', 'dist'),
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: path.resolve(frontend, main.js),
+        main: path.resolve('frontend', 'main.js'),
       },
     },
   },
   server: {
-    host: localhost,
+    host: 'localhost',
     port: 5173,
     strictPort: true,
-    origin: http://localhost:5173,
+    origin: 'http://localhost:5173',
   },
 });

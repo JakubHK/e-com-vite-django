@@ -1,0 +1,129 @@
+name: ci-cd
+
+on:
+  push:
+    branches: ["main"]
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build ARM64 image and push to GHCR
+    runs-on: ubuntu-latest
+    outputs:
+      image_base: ${{ steps.meta.outputs.image_base }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set repository lower-case and image metadata
+        id: meta
+        run: |
+          REPO="${{ github.repository }}"
+          REPO_LC=$(echo "$REPO" | tr '[:upper:]' '[:lower:]')
+          echo "image_base=ghcr.io/${REPO_LC}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Using image base: ghcr.io/${REPO_LC}"
+          echo "Using tag: ${GITHUB_SHA}"
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ steps.meta.outputs.image_base }}:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_base }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Oracle VM (Docker Compose)
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment:
+      name: production
+      url: http://${{ secrets.SSH_HOST }}
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_BASE: ${{ needs.build-and-push.outputs.image_base }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          SSH_PATH: ${{ secrets.SSH_PATH }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          envs: IMAGE_BASE,IMAGE_TAG,SSH_PATH,GHCR_USERNAME,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+
+            if [ -z "${SSH_PATH:-}" ]; then
+              echo "ERROR: SSH_PATH secret is not set"; exit 1
+            fi
+
+            echo "Deploying image: ${IMAGE_BASE}:${IMAGE_TAG}"
+            IMAGE="${IMAGE_BASE}:${IMAGE_TAG}"
+
+            # Optional login if the GHCR repository is private
+            if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "Logging in to GHCR..."
+              echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+            else
+              echo "Skipping GHCR login (assuming public image or docker already logged in)"
+            fi
+
+            cd "${SSH_PATH}"
+
+            if [ ! -f ".env" ]; then
+              echo "ERROR: .env missing in ${SSH_PATH}. Create it from .env.example with production values."; exit 1
+            fi
+
+            # Pull the new web image (uses the deploy overlay to pin the image)
+            echo "Pulling new image..."
+            IMAGE="${IMAGE}" docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml pull web
+
+            # Bring up the stack with the new image
+            echo "Starting services..."
+            IMAGE="${IMAGE}" docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml up -d
+
+            echo "Services status:"
+            docker compose ps
+
+            # Health check via nginx on localhost (fallback to wget if curl missing)
+            if command -v curl >/dev/null 2>&1; then
+              curl -fsS http://localhost/ >/dev/null || { echo 'Healthcheck failed'; docker compose logs --no-color --since=10m web nginx; exit 1; }
+            else
+              wget -q -O- http://localhost/ >/dev/null || { echo 'Healthcheck failed'; docker compose logs --no-color --since=10m web nginx; exit 1; }
+            fi
+
+            echo "Deploy successful."

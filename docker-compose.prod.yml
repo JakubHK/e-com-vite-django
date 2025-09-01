@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - staticfiles:/staticfiles:ro
+      - ./docker/nginx/default.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  web:
+    # Inherit from base compose; override or add prod-only env if needed
+    environment:
+      DJANGO_SETTINGS_MODULE: ecom.settings
+      DEBUG: "false"
+    # No host port publish; only internal traffic via nginx
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  db:
+    restart: unless-stopped
+
+volumes:
+  staticfiles:
+  postgres-data:
