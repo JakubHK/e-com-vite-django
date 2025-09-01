@@ -139,7 +139,7 @@ if "test" in sys.argv:
 DJANGO_VITE = {
     "default": {
         "dev_mode": DEBUG,
-        "manifest_path": BASE_DIR / "static" / "dist" / ".vite" / "manifest.json",
+        "manifest_path": BASE_DIR / "static" / "dist" / "manifest.json",
         # IMPORTANT:
         # - Use a prefix relative to STATIC_URL, not including it.
         # - This avoids dev URLs like http://localhost:5173/static/static/dist/...
