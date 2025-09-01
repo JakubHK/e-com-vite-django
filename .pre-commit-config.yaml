@@ -10,10 +10,23 @@ repos:
           - -lc
           - |
             set -euo pipefail
-            echo "[pre-commit] Running Django tests..."
-            if command -v uv >/dev/null 2>&1; then
-              uv run python manage.py test -v 2
+            echo "[pre-commit] Running Django tests (verbose output below)..."
+            run_tests() {
+              if command -v uv >/dev/null 2>&1; then
+                uv run python manage.py test -v 2
+              else
+                python manage.py test -v 2
+              fi
+            }
+            # Try to stream output to the user's terminal for successful hooks:
+            if [ -w /dev/tty ]; then
+              run_tests | tee /dev/tty
+            elif command -v script >/dev/null 2>&1; then
+              # Fallback: allocate a PTY so output is shown even when pre-commit suppresses stdout
+              script -q -c "bash -lc 'run_tests'" /dev/null
             else
-              python manage.py test -v 2
+              # Last resort: print to stderr (may still be hidden on success by pre-commit)
+              run_tests 1>&2
             fi
+            echo "[pre-commit] Django tests completed."
         stages: [pre-commit]
