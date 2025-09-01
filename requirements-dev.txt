@@ -1,0 +1,2 @@
+# Developer-only dependencies
+pre-commit>=3.7

@@ -1,0 +1,23 @@
+{# Partial: search suggestions dropdown #}
+{# Context: suggestions (QuerySet[Product]), q (string) #}
+<div class="mt-2 rounded-md border border-gray-200 bg-white shadow-lg">
+  {% if suggestions %}
+    <ul class="max-h-80 overflow-auto divide-y divide-gray-100">
+      {% for p in suggestions %}
+        <li>
+          <a
+            href="{{ p.get_absolute_url }}"
+            class="block px-3 py-2 hover:bg-gray-50"
+          >
+            <div class="text-sm font-medium text-gray-900 line-clamp-1">{{ p.title }}</div>
+            <div class="text-xs text-gray-600">{{ p.price }} {{ p.currency }}</div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="px-3 py-2 text-sm text-gray-600">
+      {% if q %}No results for “{{ q }}”.{% else %}Start typing to search.{% endif %}
+    </div>
+  {% endif %}
+</div>

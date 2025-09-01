@@ -1,0 +1,23 @@
+{# Partial: full cart content (table + summary) used for HTMX swaps on cart page #}
+{# Context: cart #}
+{% if cart|length %}
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <section class="lg:col-span-8">
+      {% include "core/_cart_table.html" %}
+      <div class="mt-4">
+        <a href="/" class="text-sm text-gray-600 hover:text-gray-900 hover:underline">← Continue shopping</a>
+      </div>
+    </section>
+
+    <aside class="lg:col-span-4">
+      {% include "core/_cart_summary.html" %}
+    </aside>
+  </div>
+{% else %}
+  <div class="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">
+    Your cart is empty.
+    <div class="mt-4">
+      <a href="/" class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Browse products</a>
+    </div>
+  </div>
+{% endif %}

@@ -16,18 +16,21 @@
       <p class="text-base font-semibold text-gray-900">
         {{ product.price }} {{ product.currency }}
       </p>
-      <form
-        hx-post="{% url 'cart_add' %}"
-        hx-target="#cart-badge"
-        hx-swap="outerHTML"
-      >
-        {% csrf_token %}
-        <input type="hidden" name="product_id" value="{{ product.id }}">
-        <input type="hidden" name="qty" value="1">
-        <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          Add
-        </button>
-      </form>
+      <div class="flex items-center gap-2">
+        {% include "components/_wishlist_button.html" with product=product wishlist=wishlist %}
+        <form
+          hx-post="{% url 'cart_add' %}"
+          hx-target="#cart-badge"
+          hx-swap="outerHTML"
+        >
+          {% csrf_token %}
+          <input type="hidden" name="product_id" value="{{ product.id }}">
+          <input type="hidden" name="qty" value="1">
+          <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            Add
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 </article>

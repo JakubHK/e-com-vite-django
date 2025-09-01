@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Products · E‑Shop{% endblock %}
+
+{% block content %}
+  <header class="mb-6 md:mb-8">
+    <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">Products</h1>
+    <p class="mt-1 text-sm text-gray-600">Browse the catalog, filter and paginate with no page reloads.</p>
+  </header>
+
+  <section aria-label="Filters" class="mb-4 md:mb-6">
+    <form
+      id="product-filters"
+      class="flex flex-col gap-3 md:flex-row md:items-end md:gap-4"
+      hx-get="{% url 'products' %}"
+      hx-target="#product-grid"
+      hx-push-url="true"
+      hx-trigger="change, keyup changed delay:300ms from:input[name='q']"
+      hx-indicator="#product-grid .htmx-indicator"
+    >
+      <div class="flex-1">
+        <label for="q" class="block text-xs font-medium text-gray-700">Search</label>
+        <div class="relative">
+          <input
+            type="text"
+            id="q"
+            name="q"
+            value="{{ q|default:'' }}"
+            placeholder="Search products..."
+            class="input"
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="search-suggestions"
+            hx-get="{% url 'search_suggest' %}"
+            hx-target="#search-suggestions"
+            hx-trigger="keyup changed delay:300ms"
+          />
+          <div id="search-suggestions" class="absolute z-30 left-0 right-0"></div>
+        </div>
+      </div>
+
+      <div>
+        <label for="category" class="block text-xs font-medium text-gray-700">Category</label>
+        <select id="category" name="category" class="input">
+          <option value="">All categories</option>
+          {% for c in categories %}
+            <option value="{{ c.slug }}" {% if category_slug == c.slug %}selected{% endif %}>{{ c.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a href="{% url 'products' %}" class="btn btn-secondary">Reset</a>
+      </div>
+    </form>
+  </section>
+
+  <section aria-label="Product grid">
+    <div id="product-grid">
+      {% include "core/_product_grid.html" %}
+    </div>
+  </section>
+{% endblock %}

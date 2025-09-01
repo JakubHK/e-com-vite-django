@@ -4,7 +4,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <title>{% block title %}E-Shop{% endblock %}</title>
+  {% block meta_description %}{% endblock %}
+  <link rel="canonical" href="{{ request.build_absolute_uri|default:'' }}"/>
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:site_name" content="E‑Shop"/>
+  <meta property="og:title" content="{% block og_title %}E-Shop{% endblock %}"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="{{ request.build_absolute_uri|default:'' }}"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="{% block twitter_title %}E-Shop{% endblock %}"/>
+
+  {% block head_extra %}{% endblock %}
 
   <!-- Vite (dev: HMR client; prod: hashed assets via manifest) -->
   {% vite_hmr_client %}

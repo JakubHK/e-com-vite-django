@@ -1,0 +1,74 @@
+{# Partial: products grid + pagination (HTMX target) #}
+{# Context: page_obj, paginator, q, category_slug, categories (optional), wishlist (list of product id strings) #}
+
+<div class="space-y-4">
+  <!-- Loading indicator (show when parent request has hx-indicator pointing here) -->
+  <div class="htmx-indicator text-sm text-gray-500">Loading…</div>
+
+  {% if page_obj.object_list %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      {% for product in page_obj.object_list %}
+        {% include "components/product-card.html" with product=product wishlist=wishlist %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">
+      No products match your filters.
+    </div>
+  {% endif %}
+
+  {% if paginator.num_pages > 1 %}
+    <nav class="flex items-center justify-center gap-1 text-sm" aria-label="Pagination">
+      {# Prev #}
+      {% if page_obj.has_previous %}
+        {% with prev=page_obj.previous_page_number %}
+          <a
+            href="{% url 'products' %}?page={{ prev }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_slug %}&category={{ category_slug }}{% endif %}"
+            hx-get="{% url 'products' %}?page={{ prev }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_slug %}&category={{ category_slug }}{% endif %}"
+            hx-target="#product-grid"
+            hx-push-url="true"
+            class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-900 hover:bg-gray-50"
+          >
+            ← Prev
+          </a>
+        {% endwith %}
+      {% else %}
+        <span class="inline-flex items-center rounded-md border border-gray-200 bg-gray-100 px-3 py-1.5 text-gray-400 cursor-not-allowed">← Prev</span>
+      {% endif %}
+
+      {# Pages #}
+      {% for i in page_obj.paginator.page_range %}
+        {% if i == page_obj.number %}
+          <span class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-white font-medium">{{ i }}</span>
+        {% else %}
+          <a
+            href="{% url 'products' %}?page={{ i }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_slug %}&category={{ category_slug }}{% endif %}"
+            hx-get="{% url 'products' %}?page={{ i }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_slug %}&category={{ category_slug }}{% endif %}"
+            hx-target="#product-grid"
+            hx-push-url="true"
+            class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-900 hover:bg-gray-50"
+          >
+            {{ i }}
+          </a>
+        {% endif %}
+      {% endfor %}
+
+      {# Next #}
+      {% if page_obj.has_next %}
+        {% with nxt=page_obj.next_page_number %}
+          <a
+            href="{% url 'products' %}?page={{ nxt }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_slug %}&category={{ category_slug }}{% endif %}"
+            hx-get="{% url 'products' %}?page={{ nxt }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_slug %}&category={{ category_slug }}{% endif %}"
+            hx-target="#product-grid"
+            hx-push-url="true"
+            class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-900 hover:bg-gray-50"
+          >
+            Next →
+          </a>
+        {% endwith %}
+      {% else %}
+        <span class="inline-flex items-center rounded-md border border-gray-200 bg-gray-100 px-3 py-1.5 text-gray-400 cursor-not-allowed">Next →</span>
+      {% endif %}
+    </nav>
+  {% endif %}
+</div>

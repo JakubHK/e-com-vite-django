@@ -260,3 +260,154 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 ---
 
 For a concise runbook, see also the root-level [`DEPLOY.md`](../DEPLOY.md).
+## 11) Application Architecture and SSR + HTMX Development Guide
+
+This section documents how the app is structured for Server‑Side Rendering (SSR) with htmx partials, Alpine.js for client‑side UI state, Tailwind CSS utilities, and Vite asset pipeline. It also explains how to add new features following the same pattern.
+
+Key references
+- Views and SSR helper:
+  - [core/utils.py](../core/utils.py)
+  - [core/views.py](../core/views.py)
+- Templates (full pages and partials):
+  - Full pages: [templates/core/products.html](../templates/core/products.html), [templates/core/cart.html](../templates/core/cart.html), [templates/core/product_detail.html](../templates/core/product_detail.html)
+  - Partials (underscore‑prefixed): [templates/core/_product_grid.html](../templates/core/_product_grid.html), [templates/core/_cart_table.html](../templates/core/_cart_table.html), [templates/core/_cart_summary.html](../templates/core/_cart_summary.html), [templates/core/_cart_content.html](../templates/core/_cart_content.html), [templates/core/_search_suggestions.html](../templates/core/_search_suggestions.html), [templates/includes/_cart_badge.html](../templates/includes/_cart_badge.html), [templates/components/_wishlist_button.html](../templates/components/_wishlist_button.html)
+- SEO + base layout:
+  - [templates/base.html](../templates/base.html)
+  - Sitemaps/robots: [core/sitemaps.py](../core/sitemaps.py), sitemap.xml/robots.txt in [core/urls.py](../core/urls.py)
+- Frontend pipeline:
+  - [vite.config.mjs](../vite.config.mjs), [tailwind.config.js](../tailwind.config.js), [postcss.config.js](../postcss.config.js)
+  - Entry assets: [frontend/main.js](../frontend/main.js), [frontend/style.css](../frontend/style.css)
+
+### A. SSR pattern and “two‑in‑one” views with htmx
+
+We render the full base layout for normal requests and only the specific partial for HTMX requests (HX-Request header).
+
+- Helper: [python.def hx_render()](../core/utils.py:1)
+
+Usage example in a list view (grid + filters + pagination):
+
+- [python.def products_list()](../core/views.py:19)
+  - Full request → [templates/core/products.html](../templates/core/products.html)
+  - HX request → [templates/core/_product_grid.html](../templates/core/_product_grid.html)
+
+Cart page follows the same idea:
+
+- [python.def cart_view()](../core/views.py:94)
+  - Full → [templates/core/cart.html](../templates/core/cart.html)
+  - Partial → [templates/core/_cart_content.html](../templates/core/_cart_content.html)
+  - Cart item update/remove returns [templates/core/_cart_content.html](../templates/core/_cart_content.html) when “context=page” is posted from the cart page.
+
+Conventions:
+- Partial templates are underscore‑prefixed and never extend base.html.
+- Full templates extend base.html and include partials with {% include %}.
+
+### B. htmx usage patterns implemented
+
+1) Product filtering (GET)
+- Filter form on [templates/core/products.html](../templates/core/products.html) uses:
+  - hx-get to products list URL
+  - hx-target="#product-grid"
+  - hx-push-url="true" to update the browser URL
+  - hx-indicator to show a “Loading...” indicator inside the grid
+
+2) Pagination (GET)
+- Page links in [templates/core/_product_grid.html](../templates/core/_product_grid.html) use hx-get to the same list endpoint + hx-target + hx-push-url.
+
+3) Search autocomplete (GET)
+- Search input in [templates/core/products.html](../templates/core/products.html) does:
+  - hx-get to “/search/suggest”
+  - hx-trigger="keyup changed delay:300ms"
+  - hx-target to a div under the input
+- Server returns [templates/core/_search_suggestions.html](../templates/core/_search_suggestions.html).
+
+4) Add to cart (POST)
+- Buttons on cards and detail page post to cart_add:
+  - hx-target="#cart-badge"
+  - hx-swap="outerHTML"
+- View returns [templates/includes/_cart_badge.html](../templates/includes/_cart_badge.html) and sets HX-Trigger: cart-changed.
+
+5) Cart updates on cart page (POST)
+- Quantity update/remove forms include hidden input context=page:
+  - hx-target="#cart-content"
+  - The server returns [templates/core/_cart_content.html](../templates/core/_cart_content.html) to refresh both table + summary, and also triggers cart-changed to update navbar badge.
+
+6) Wishlist toggle (POST)
+- Button swaps itself via:
+  - hx-post to /wishlist/toggle
+  - hx-target="this", hx-swap="outerHTML"
+- Partial is [templates/components/_wishlist_button.html](../templates/components/_wishlist_button.html); view is [python.def wishlist_toggle()](../core/views.py:72).
+
+7) Navbar cart badge auto‑refresh
+- [templates/includes/navbar.html](../templates/includes/navbar.html) contains:
+  - #cart-badge that hx-get’s /cart/badge on load and whenever the “cart-changed” event is triggered on body.
+
+### C. Alpine.js usage
+
+- Navbar mobile menu toggler in [templates/includes/navbar.html](../templates/includes/navbar.html) with x-data="{ open: false }".
+- Product detail minimal gallery state in [templates/core/product_detail.html](../templates/core/product_detail.html) with x-data for currentImage (extendable).
+
+### D. SEO foundations
+
+- [templates/base.html](../templates/base.html) provides:
+  - <link rel="canonical"> via request.build_absolute_uri
+  - Blocks:
+    - {% block title %} (required per page)
+    - {% block meta_description %} for description
+    - {% block og_title %} and {% block twitter_title %} (default “E‑Shop”)
+    - {% block head_extra %} to inject page‑specific meta/JSON‑LD
+- Product JSON‑LD:
+  - Injected on detail page in [templates/core/product_detail.html](../templates/core/product_detail.html).
+- Sitemap + robots:
+  - [core/sitemaps.py](../core/sitemaps.py) for ProductSitemap and StaticViewSitemap
+  - routes in [core/urls.py](../core/urls.py) for /sitemap.xml and /robots.txt
+  - [python.def robots_txt()](../core/views.py:211) points to sitemap.
+
+### E. Tailwind + Vite
+
+- Tailwind scans:
+  - templates/**/*.html
+  - frontend/**/*.{js,ts}
+- Dev:
+  - Terminal A: npm run dev
+  - Terminal B: python manage.py runserver
+- Manifest mode (no HMR): npm run build and runserver with DEBUG=false
+
+### F. Adding a new HTMX partial feature (Recipe)
+
+1) Create an underscore partial for the fragment you want to update dynamically (e.g., templates/core/_my_component.html).
+2) Add a full page or an include that hosts the container (id) where the partial will be swapped.
+3) Write/extend the view:
+   - For GET partial updates, check HX-Request to return the partial only.
+   - For POST mutations, decide:
+     - Navbar micro updates (badge) → return only the small partial and set HX-Trigger to notify others.
+     - Page‑level re‑render (like cart) → return a larger partial with everything cohesive.
+4) Wire HTMX attributes:
+   - hx-get or hx-post to your endpoint
+   - hx-target to the container or “this”
+   - hx-swap strategy (“innerHTML”, “outerHTML”, etc.)
+   - hx-push-url where appropriate for navigation semantics
+   - Optional: hx-indicator for loading feedback
+5) Keep templates small and reusable; for server logic re-use query builders and annotate context carefully.
+
+### G. Testing
+
+Manual test plan
+- See [docs/TESTING.md](./TESTING.md) for an exhaustive step‑by‑step manual checklist.
+
+Automated tests
+- Basic integration tests live in [core/tests.py](../core/tests.py)
+- Run:
+  - python manage.py test
+
+### H. Known good endpoints (quick)
+
+- GET / → 302 → /products/
+- GET /products/ → full page
+- GET /products/?q=... → HTMX partial (grid only)
+- GET /search/suggest/?q=... → HTMX partial (list)
+- POST /wishlist/toggle/ → HTMX partial (button)
+- POST /cart/add → HTMX partial (badge)
+- POST /cart/update (context=page) → HTMX partial (full cart content)
+- POST /cart/remove (context=page) → HTMX partial (full cart content)
+- GET /robots.txt → text/plain
+- GET /sitemap.xml → XML

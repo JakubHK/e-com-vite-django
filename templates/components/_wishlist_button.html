@@ -1,0 +1,51 @@
+<form
+  hx-post="{% url 'wishlist_toggle' %}"
+  hx-target="this"
+  hx-swap="outerHTML"
+  class="inline"
+>
+  {% csrf_token %}
+  <input type="hidden" name="product_id" value="{{ product.id }}" />
+
+  {% with pid=product.id|stringformat:"s" %}
+    {% if in_wishlist %}
+      <button
+        type="submit"
+        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-900 hover:bg-gray-50"
+        aria-pressed="true"
+        title="Remove from wishlist"
+      >
+        <!-- Filled heart -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-rose-600" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.645 20.91l-.007-.003-.032-.017a15.247 15.247 0 01-.546-.312 25.18 25.18 0 01-4.717-3.478C3.873 15.114 2 12.941 2 10.273 2 8.093 3.63 6.5 5.75 6.5c1.3 0 2.614.585 3.616 1.552L12 10.563l2.634-2.51C15.636 7.085 16.95 6.5 18.25 6.5 20.37 6.5 22 8.093 22 10.273c0 2.668-1.873 4.841-4.343 6.827a25.18 25.18 0 01-4.717 3.478 15.247 15.247 0 01-.546.312l-.032.017-.007.003a.75.75 0 01-.66 0z"/>
+        </svg>
+        <span class="sr-only">In wishlist</span>
+      </button>
+    {% elif wishlist and pid in wishlist %}
+      <button
+        type="submit"
+        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-900 hover:bg-gray-50"
+        aria-pressed="true"
+        title="Remove from wishlist"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-rose-600" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.645 20.91l-.007-.003-.032-.017a15.247 15.247 0 01-.546-.312 25.18 25.18 0 01-4.717-3.478C3.873 15.114 2 12.941 2 10.273 2 8.093 3.63 6.5 5.75 6.5c1.3 0 2.614.585 3.616 1.552L12 10.563l2.634-2.51C15.636 7.085 16.95 6.5 18.25 6.5 20.37 6.5 22 8.093 22 10.273c0 2.668-1.873 4.841-4.343 6.827a25.18 25.18 0 01-4.717 3.478 15.247 15.247 0 01-.546.312l-.032.017-.007.003a.75.75 0 01-.66 0z"/>
+        </svg>
+        <span class="sr-only">In wishlist</span>
+      </button>
+    {% else %}
+      <button
+        type="submit"
+        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-900 hover:bg-gray-50"
+        aria-pressed="false"
+        title="Add to wishlist"
+      >
+        <!-- Outline heart -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-width="1.5" d="M21 10.273c0 2.668-1.873 4.841-4.343 6.827a25.18 25.18 0 01-4.717 3.478 15.247 15.247 0 01-.546.312l-.032.017-.007.003-.007-.003-.032-.017a15.247 15.247 0 01-.546-.312 25.18 25.18 0 01-4.717-3.478C3.873 15.114 2 12.941 2 10.273 2 8.093 3.63 6.5 5.75 6.5c1.3 0 2.614.585 3.616 1.552L12 10.563l2.634-2.51C15.636 7.085 16.95 6.5 18.25 6.5 20.37 6.5 22 8.093 22 10.273z"/>
+        </svg>
+        <span class="sr-only">Add to wishlist</span>
+      </button>
+    {% endif %}
+  {% endwith %}
+</form>
