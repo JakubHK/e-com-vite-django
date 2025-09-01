@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django.conf import settings
 
 
 class TimeStampedModel(models.Model):
@@ -52,6 +53,10 @@ class Product(TimeStampedModel):
 class OrderStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     PAID = "paid", "Paid"
+    SHIPPED = "shipped", "Shipped"
+    FULFILLED = "fulfilled", "Fulfilled"
+    REFUNDED = "refunded", "Refunded"
+    RETURNED = "returned", "Returned"
     CANCELLED = "cancelled", "Cancelled"
 
 
@@ -110,3 +115,26 @@ class OrderItem(models.Model):
     @property
     def subtotal(self):
         return self.unit_price * self.quantity
+
+
+class OrderTransitionLog(TimeStampedModel):
+    order = models.ForeignKey("Order", on_delete=models.CASCADE, related_name="transitions")
+    from_state = models.CharField(max_length=20)
+    to_state = models.CharField(max_length=20)
+    actor_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    actor_label = models.CharField(max_length=200, blank=True)
+    note = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    idempotency_key = models.CharField(max_length=64, blank=True, null=True, unique=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["order"]),
+            models.Index(fields=["created_at"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Order {self.order_id}: {self.from_state} → {self.to_state}"

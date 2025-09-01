@@ -1,0 +1,80 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Apply workflow transition{% endblock %}
+
+{% block content %}
+<div class="module">
+  <h1>Apply workflow transition</h1>
+  <p class="help">
+    Select a target state and optionally add a note. You can perform a dry-run to validate guards without saving.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="{{ action }}">
+    <input type="hidden" name="apply" value="1">
+
+    {# Preserve selected objects for this action #}
+    {% for obj in queryset %}
+      <input type="hidden" name="_selected_action" value="{{ obj.pk }}">
+    {% endfor %}
+
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <label for="id_target_state"><strong>Target state</strong></label>
+        {{ form.target_state }}
+      </div>
+      <div class="form-row">
+        <label for="id_note">Note</label>
+        {{ form.note }}
+      </div>
+      <div class="form-row">
+        <label for="id_dry_run">Dry run</label>
+        {{ form.dry_run }} <span class="help">{{ form.fields.dry_run.help_text }}</span>
+      </div>
+    </fieldset>
+
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for field, errors in form.errors.items %}
+          {% for e in errors %}
+            <li>{{ field }}: {{ e }}</li>
+          {% endfor %}
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <div class="submit-row">
+      <input type="submit" value="Apply" class="default">
+      <a href=".." class="button cancel-link">Cancel</a>
+    </div>
+
+    <h2>Selected orders</h2>
+    <div class="results">
+      <table id="result_list">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Email</th>
+            <th scope="col">Current status</th>
+            <th scope="col">Total</th>
+            <th scope="col">Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in queryset %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+              <td>{{ obj.pk }}</td>
+              <td>{{ obj.email }}</td>
+              <td>{{ obj.status }}</td>
+              <td>{{ obj.total }} {{ obj.currency }}</td>
+              <td>{{ obj.created_at }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+import sys
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -130,6 +131,10 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
+# Testing: avoid manifest lookups for admin CSS/JS during test template rendering
+if "test" in sys.argv:
+    STORAGES["staticfiles"] = {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}
+
 # django-vite configuration
 DJANGO_VITE = {
     "default": {
@@ -148,3 +153,7 @@ DJANGO_VITE = {
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Feature flags
+WORKFLOW_ENABLED = os.getenv('WORKFLOW_ENABLED', 'True').lower() in ('1','true','yes','on')

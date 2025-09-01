@@ -177,3 +177,125 @@ Notes
 - Ensure your test database can be created (SQLite by default) and that required migrations are present.
 - The test suite uses fixtures where needed (see [core/tests.py](../core/tests.py) and [core/fixtures/sample.json](../core/fixtures/sample.json)).
 - If you use a virtual environment, activate it prior to running pre-commit so the python and dependencies resolve correctly.
+
+
+# Admin QA — Orders Workflow and Catalog
+
+This section adds step‑by‑step checks for the Django Admin, covering the flexible Order workflow engine, audit logging, CSV export, and catalog management. See the workflow overview in [docs/WORKFLOW.md](docs/WORKFLOW.md). Admin integrations live in [core/admin.py](core/admin.py) and the action template [templates/admin/core/order/apply_transition.html](templates/admin/core/order/apply_transition.html). The feature flag is defined in [ecom/settings.py](ecom/settings.py).
+
+Pre‑requisites
+- A server is running and accessible at your admin URL (default /admin/).
+- A superuser exists and can log in.
+- Some products exist (either via fixtures or created through admin).
+- Feature flag:
+  - WORKFLOW_ENABLED defaults to True. To test legacy fallback, set env var WORKFLOW_ENABLED=false and restart the server.
+
+A) Catalog admin sanity
+1) Categories
+   - Visit /admin/core/category/.
+   - Create at least one category. Confirm slug is pre‑populated.
+   - List view shows “Products” count and is searchable by title or slug.
+
+2) Products
+   - Visit /admin/core/product/.
+   - Create a product:
+     - Fill Basics (category, title, slug, description, image_url).
+     - Fill Pricing (price, currency).
+     - Visibility (is_active True).
+   - Save and confirm:
+     - List view shows the image thumbnail in the “Image” column.
+     - “is_active” is inline editable from list view.
+     - Pagination is 50 per page.
+     - Filters on category and is_active work.
+   - Bulk actions:
+     - Select a few products → Actions → “Activate selected products” → confirm message.
+     - Then “Deactivate selected products” → confirm message.
+
+B) Orders admin — totals recompute and deletion guard
+1) Create an Order:
+   - Visit /admin/core/order/ → Add Order.
+   - Fill contact/shipping fields and save (status defaults to pending).
+   - Add OrderItems inline (product, quantity, unit_price, currency).
+   - Save and confirm Total is computed and matches sum of subtotals.
+
+2) Totals recompute after inline edits:
+   - Change one inline quantity or unit_price and save.
+   - Confirm Total updated accordingly.
+
+3) Deletion guard:
+   - For an order with status “paid”, attempt to delete.
+   - Expected: deletion is blocked (policy safety).
+
+C) Orders admin — CSV export
+1) From the Orders list, select 1–3 orders → Actions → “Export selected Orders to CSV”.
+2) Confirm a CSV downloads and contains header: id,email,status,total,created_at; and rows for selected orders.
+
+D) Orders admin — workflow transitions (Option B engine)
+Canonical map:
+- pending → paid → shipped → fulfilled
+- cancel from pending/paid → cancelled
+- refund from fulfilled → refunded
+- return from fulfilled → returned
+
+1) Dry‑run validation
+   - From the Orders list:
+     - Select one pending order → Actions → “Apply workflow transition…”.
+     - Pick target “paid”, add note “dry”, check “Dry run”.
+     - Submit and expect a success validation message; order status remains pending; no OrderTransitionLog row created.
+
+2) Real transition pending → paid
+   - Repeat without Dry run.
+   - Expected:
+     - Order status becomes “paid”.
+     - One OrderTransitionLog entry exists showing from_state=pending, to_state=paid in the “Transitions” inline on detail.
+
+3) paid → shipped
+   - Use “Apply workflow transition…” with target “shipped”.
+   - Expected: status shipped; another OrderTransitionLog entry appears.
+
+4) shipped → fulfilled
+   - Transition to “fulfilled”.
+   - Expected: status fulfilled; another log entry appears.
+
+5) cancel allowed paths
+   - Create a fresh pending order; transition to “cancelled”.
+     - Expected: success; log entry pending → cancelled.
+   - Create a fresh order, move to “paid”, then transition to “cancelled”.
+     - Expected: success; log entry paid → cancelled.
+
+6) refund/return from fulfilled
+   - For a fulfilled order:
+     - Transition to “refunded”:
+       - Expected: success; log entry fulfilled → refunded.
+     - Alternatively, transition to “returned”:
+       - Expected: success; log entry fulfilled → returned.
+   - Note: these are stubs for effects (no integration), but audit should still log.
+
+7) Bulk transitions
+   - Prepare two orders:
+     - One pending (eligible for “cancelled”).
+     - One fulfilled (not eligible for “cancelled”).
+   - Select both → “Apply workflow transition…”:
+     - Dry run to target “cancelled”:
+       - Expected: validation success only for pending; no DB changes; no logs created.
+     - Real apply to target “cancelled”:
+       - Expected: pending becomes cancelled; fulfilled remains fulfilled; one log entry for the pending order only.
+
+8) Idempotency behavior
+   - Apply the same real transition twice to the same target (e.g., pending → paid) via the admin action.
+   - Expected: only a single OrderTransitionLog exists for that (order, to_state) idempotency key (the UI message may still show success for the second attempt; rely on the log count to confirm no duplicate entry).
+
+9) Feature flag fallback
+   - Set WORKFLOW_ENABLED=false via environment; restart the server.
+   - Repeat “Mark selected orders as Paid” and “Mark selected orders as Cancelled”.
+   - Expected: direct status updates occur (legacy path), no OrderTransitionLog rows are created by these actions.
+
+Troubleshooting
+- No “Apply workflow transition…” option:
+  - Ensure you’re on the Orders list page and have selected at least one order.
+- No target options in action form:
+  - The current state has no defined transitions in the canonical map (see [docs/WORKFLOW.md](docs/WORKFLOW.md)).
+- Missing audit rows:
+  - Confirm the transition was not a Dry run and WORKFLOW_ENABLED=True.
+- Static files warnings during tests:
+  - Tests temporarily use the non‑manifest staticfiles storage for admin CSS/JS (see [ecom/settings.py](ecom/settings.py)).
